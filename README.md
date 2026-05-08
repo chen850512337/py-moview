@@ -1,6 +1,3 @@
-# py-moview
-A Python/OpenGL viewer for molecular orbital isosurfaces from Gaussian fchk and Molden wavefunction files.
-
 # Py-MOview
 
 Py-MOview is a lightweight Python/OpenGL viewer for molecular orbital isosurfaces. It is designed as a cross-platform alternative for quickly previewing molecular orbitals directly from wavefunction files, especially on macOS where some GUI functions of Multiwfn are not available.
