@@ -3655,7 +3655,10 @@ class OpenGLViewer(QtWidgets.QMainWindow):
             )
         scene_slot.title_label.setText(title)
         if scene_slot is self.primary_slot:
-            self.scene_title.setText(title)
+            if self.wf is not None:
+                self.scene_title.setText("")
+            else:
+                self.scene_title.setText("Open a wavefunction file")
         scene_slot.scene_limit_arrays = [arr.copy() for arr in points_for_limits]
         if points_for_limits:
             self.update_base_view(np.vstack([arr.reshape(-1, 3) for arr in points_for_limits if arr.size]), scene_slot)
