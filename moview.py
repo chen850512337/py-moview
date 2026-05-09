@@ -2811,7 +2811,7 @@ class OpenGLViewer(QtWidgets.QMainWindow):
             self.zoom_slider.setValue(100)
             self.zoom_slider.blockSignals(False)
             self.update_base_view(self.wf.coordinates_angstrom, self.primary_slot)
-            self.file_label.setText(f"{self.wf.path.name} ({self.wf.source_format})\n{self.wf.title}")
+            self.file_label.setText(f"{self.wf.path.name} ({self.wf.source_format})")
             self.atom_label.setText(f"Atoms: {len(self.wf.atomic_numbers)}")
             self.basis_label.setText(f"Basis: {self.wf.n_basis}")
             self.spin_combo.blockSignals(True)
