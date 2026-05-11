@@ -3,7 +3,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
-from moview.utils import BOHR_TO_ANG, SYMBOL_TO_ATOMIC_NUMBER
+
+from moview.utils import BOHR_TO_ANG
 from moview.utils import _as_float, n_shell_functions
 from moview.utils import Shell
 

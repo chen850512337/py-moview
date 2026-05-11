@@ -14,7 +14,7 @@ from moview.fchk_parser import FCHKWavefunction
 from moview.moview import OrbitalGrid, SurfaceMesh, BasisGrid
 from moview.moview import (
     parse_wavefunction, compute_basis_grid, extract_isosurfaces,
-    compute_orbital_grids_from_basis, compute_bonds
+    compute_orbital_grids, compute_bonds
 )
 from moview.utils import (
     ELEMENT_COLORS, PERIODIC_SYMBOLS, BOHR_TO_ANG, COVALENT_RADII,
@@ -1211,7 +1211,7 @@ class OpenGLViewer(QtWidgets.QMainWindow):
     ) -> tuple[OrbitalGrid, SurfaceMesh, SurfaceMesh, float]:
         assert self.wf is not None
         basis_grid = self.get_basis_grid(grid_size, margin)
-        grid = compute_orbital_grid_from_basis(self.wf, spin, idx, basis_grid)
+        [grid] = compute_orbital_grids(self.wf, spin, [idx], grid_size, margin, basis_grid)
         pos, neg, level = extract_isosurfaces(grid, iso)
         return grid, pos, neg, level
 
@@ -1235,7 +1235,7 @@ class OpenGLViewer(QtWidgets.QMainWindow):
             indices = [idx for _slot_index, idx in specs]
             slot_by_idx = {idx: slot_index for slot_index, idx in specs}
             basis_grid = self.get_basis_grid(grid_size, margin)
-            for grid in compute_orbital_grids_from_basis(self.wf, spin, indices, basis_grid):
+            for grid in compute_orbital_grids(self.wf, spin, indices, grid_size, margin, basis_grid):
                 pos, neg, level = extract_isosurfaces(grid, iso)
                 out.append((slot_by_idx[grid.orbital_index0], (grid, pos, neg, level)))
         return out
@@ -1735,7 +1735,7 @@ class OpenGLViewer(QtWidgets.QMainWindow):
             by_grid.setdefault(grid_size, []).append(idx)
         for grid_size, indices in by_grid.items():
             basis_grid = self.get_basis_grid(grid_size, margin)
-            for grid in compute_orbital_grids_from_basis(self.wf, spin, indices, basis_grid):
+            for grid in compute_orbital_grids(self.wf, spin, indices, grid_size, margin, basis_grid):
                 pos, neg, level = extract_isosurfaces(grid, 0.0)
                 out.append((grid.orbital_index0, grid.grid_size, (grid, pos, neg, level)))
         return out

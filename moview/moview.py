@@ -203,32 +203,6 @@ def evaluate_shell_float32(shell: Shell, points: np.ndarray) -> list[np.ndarray]
     return comps
 
 
-def evaluate_mo(
-    wavefunction: FCHKWavefunction,
-    spin: str,
-    orbital_index0: int,
-    points: np.ndarray,
-    coeff_cutoff: float = 1.0e-10,
-) -> np.ndarray:
-    coeff_matrix = wavefunction.coefficients(spin)
-    if orbital_index0 < 0 or orbital_index0 >= coeff_matrix.shape[0]:
-        raise IndexError(f"Orbital index {orbital_index0 + 1} is outside 1..{coeff_matrix.shape[0]}")
-    coeffs = coeff_matrix[orbital_index0]
-    values = np.zeros(points.shape[0], dtype=np.float64)
-    basis_index = 0
-    for shell in wavefunction.shells:
-        nfunc = n_shell_functions(shell.shell_type)
-        shell_coeffs = coeffs[basis_index : basis_index + nfunc]
-        basis_index += nfunc
-        if np.max(np.abs(shell_coeffs)) < coeff_cutoff:
-            continue
-        components = evaluate_shell(shell, points)
-        for component, coeff in zip(components, shell_coeffs):
-            if abs(coeff) >= coeff_cutoff:
-                values += coeff * component
-    return values
-
-
 def evaluate_mos(
     wavefunction: FCHKWavefunction,
     spin: str,
@@ -334,28 +308,6 @@ def auto_isovalue(values: np.ndarray) -> float:
     return max(1.0e-5, min(0.75 * vmax, 0.42 * p99))
 
 
-def compute_orbital_grid(
-    wavefunction: FCHKWavefunction,
-    spin: str,
-    orbital_index0: int,
-    grid_size: int,
-    margin_bohr: float,
-) -> OrbitalGrid:
-    points, shape, spacing, origin = make_grid(wavefunction, grid_size, margin_bohr)
-    values = evaluate_mo(wavefunction, spin, orbital_index0, points).reshape(shape)
-    return OrbitalGrid(
-        spin=spin,
-        orbital_index0=orbital_index0,
-        grid_size=grid_size,
-        margin_bohr=margin_bohr,
-        values=values,
-        shape=shape,
-        spacing=spacing,
-        origin=origin,
-        auto_iso=auto_isovalue(values),
-    )
-
-
 def compute_basis_grid(
     wavefunction: FCHKWavefunction,
     grid_size: int,
@@ -396,76 +348,40 @@ def compute_basis_grid(
     )
 
 
-def compute_orbital_grid_from_basis(
-    wavefunction: FCHKWavefunction,
-    spin: str,
-    orbital_index0: int,
-    basis_grid: BasisGrid,
-) -> OrbitalGrid:
-    coeff_matrix = wavefunction.coefficients(spin)
-    if orbital_index0 < 0 or orbital_index0 >= coeff_matrix.shape[0]:
-        raise IndexError(f"Orbital index {orbital_index0 + 1} is outside 1..{coeff_matrix.shape[0]}")
-    coeffs = coeff_matrix[orbital_index0].astype(np.float32, copy=False)
-    values = (coeffs @ basis_grid.basis_values).reshape(basis_grid.shape)
-    return OrbitalGrid(
-        spin=spin,
-        orbital_index0=orbital_index0,
-        grid_size=basis_grid.grid_size,
-        margin_bohr=basis_grid.margin_bohr,
-        values=values,
-        shape=basis_grid.shape,
-        spacing=basis_grid.spacing,
-        origin=basis_grid.origin,
-        auto_iso=auto_isovalue(values),
-    )
-
-
-def compute_orbital_grids_from_basis(
-    wavefunction: FCHKWavefunction,
-    spin: str,
-    orbital_indices0: Iterable[int],
-    basis_grid: BasisGrid,
-) -> list[OrbitalGrid]:
-    indices = list(orbital_indices0)
-    if not indices:
-        return []
-    coeff_matrix = wavefunction.coefficients(spin)
-    index_array = np.asarray(indices, dtype=np.int64)
-    if int(index_array.min()) < 0 or int(index_array.max()) >= coeff_matrix.shape[0]:
-        raise IndexError(f"Orbital index is outside 1..{coeff_matrix.shape[0]}")
-    selected_coeffs = coeff_matrix[index_array].astype(np.float32, copy=False)
-    value_rows = selected_coeffs @ basis_grid.basis_values
-    grids: list[OrbitalGrid] = []
-    for row_idx, orbital_index0 in enumerate(indices):
-        values = value_rows[row_idx].reshape(basis_grid.shape).copy()
-        grids.append(
-            OrbitalGrid(
-                spin=spin,
-                orbital_index0=orbital_index0,
-                grid_size=basis_grid.grid_size,
-                margin_bohr=basis_grid.margin_bohr,
-                values=values,
-                shape=basis_grid.shape,
-                spacing=basis_grid.spacing,
-                origin=basis_grid.origin,
-                auto_iso=auto_isovalue(values),
-            )
-        )
-    return grids
-
-
 def compute_orbital_grids(
     wavefunction: FCHKWavefunction,
     spin: str,
     orbital_indices0: Iterable[int],
     grid_size: int,
     margin_bohr: float,
+    basis_grid: BasisGrid | None = None,
 ) -> list[OrbitalGrid]:
     indices = list(orbital_indices0)
     if not indices:
         return []
-    points, shape, spacing, origin = make_grid(wavefunction, grid_size, margin_bohr)
-    value_rows = evaluate_mos(wavefunction, spin, indices, points)
+
+    coeff_matrix = wavefunction.coefficients(spin)
+    index_array = np.asarray(indices, dtype=np.int64)
+    if int(index_array.min()) < 0 or int(index_array.max()) >= coeff_matrix.shape[0]:
+        raise IndexError(f"Orbital index is outside 1..{coeff_matrix.shape[0]}")
+
+    selected_coeffs = coeff_matrix[index_array].astype(np.float32, copy=False)
+
+    if basis_grid is not None:
+        # Fast path: reuse precomputed basis function values
+        value_rows = selected_coeffs @ basis_grid.basis_values
+        shape = basis_grid.shape
+        spacing = basis_grid.spacing
+        origin = basis_grid.origin
+        grid_size_out = basis_grid.grid_size
+        margin_out = basis_grid.margin_bohr
+    else:
+        # Normal path: compute grid and evaluate shells
+        points, shape, spacing, origin = make_grid(wavefunction, grid_size, margin_bohr)
+        value_rows = evaluate_mos(wavefunction, spin, indices, points)
+        grid_size_out = grid_size
+        margin_out = margin_bohr
+
     grids: list[OrbitalGrid] = []
     for row_idx, orbital_index0 in enumerate(indices):
         values = value_rows[row_idx].reshape(shape).copy()
@@ -473,8 +389,8 @@ def compute_orbital_grids(
             OrbitalGrid(
                 spin=spin,
                 orbital_index0=orbital_index0,
-                grid_size=grid_size,
-                margin_bohr=margin_bohr,
+                grid_size=grid_size_out,
+                margin_bohr=margin_out,
                 values=values,
                 shape=shape,
                 spacing=spacing,
@@ -563,7 +479,7 @@ def surface_for_orbital(
     iso: float,
     margin_bohr: float,
 ) -> tuple[SurfaceMesh, SurfaceMesh, float, tuple[int, int, int]]:
-    grid = compute_orbital_grid(wavefunction, spin, orbital_index0, grid_size, margin_bohr)
+    grid = compute_orbital_grids(wavefunction, spin, [orbital_index0], grid_size, margin_bohr)[0]
     pos, neg, level = extract_isosurfaces(grid, iso)
     return pos, neg, level, grid.shape
 
@@ -584,7 +500,10 @@ def detect_wavefunction_format(path: Path) -> str:
     raise ValueError(f"Could not determine wavefunction file type for {path}")
 
 
-def parse_wavefunction(path: Path, file_format: str | None = None) -> FCHKWavefunction:
+def parse_wavefunction(
+    path: Path, 
+    file_format: str | None = None
+) -> FCHKWavefunction:
     resolved_format = (file_format or detect_wavefunction_format(path)).lower()
     if resolved_format == "fchk":
         return FCHKParser(path).parse()
