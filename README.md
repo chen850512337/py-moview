@@ -1,5 +1,5 @@
 # Py-MOview
-
+This repo fork from Py-MOview.
 Py-MOview is a lightweight Python/OpenGL viewer for molecular orbital isosurfaces. It is designed as a cross-platform alternative for quickly previewing molecular orbitals directly from wavefunction files, especially on macOS where some GUI functions of Multiwfn are not available.
 
 The program currently supports Gaussian formatted checkpoint files (`.fchk/.fch`) and Molden-format wavefunction files. It provides an interactive GUI for viewing orbital isosurfaces, orbital energies, occupations, and alpha/beta spin orbitals.
@@ -19,12 +19,11 @@ The program currently supports Gaussian formatted checkpoint files (`.fchk/.fch`
 
 ## Installation
 
-Python 3.12 is recommended. Other Python versions have not been systematically tested.
 
 ```bash
 conda create -n moview python=3.12
 conda activate moview
-pip install numpy scikit-image pyqtgraph PyQt6 PyOpenGL
+pip install -e ./
 ```
 
 ## Usage
@@ -32,20 +31,7 @@ pip install numpy scikit-image pyqtgraph PyQt6 PyOpenGL
 Run directly with Python:
 
 ```bash
-python MOview.py molecule.fchk
-```
-
-If the file format is not detected correctly, specify it manually:
-
-```bash
-python MOview.py molecule.fchk --fchk
-python MOview.py molecule.molden --molden
-```
-
-If `MOview.py` has a proper shebang and is added to your `PATH`, it can also be launched directly:
-
-```bash
-MOview.py molecule.fchk
+moviewer molecule.fchk
 ```
 
 ## Common options
